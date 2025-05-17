@@ -1,0 +1,10 @@
+.env
+.idea
+.build
+.dist
+.venv
+/build
+/.idea
+/.idea
+/dist
+.pyc
