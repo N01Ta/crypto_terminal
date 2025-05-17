@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, QSize, pyqtSignal, QRectF, QPointF
 from PyQt5.QtGui import QFont, QPainter, QColor, QPen, QPalette, QBrush
 
-# --- Цветовая палитра ---
+# Цветовая палитра
 DARK_BG_COLOR = "#282c34"
 PRIMARY_TEXT_COLOR = "#e8e8f0"
 SECONDARY_TEXT_COLOR = "#b0b0d0"
@@ -64,7 +64,6 @@ class TradeUi(QWidget):
         self.main_layout.setContentsMargins(0, 0, 0, 0)
         self.main_layout.setSpacing(0)
 
-        # --- Верхняя панель ---
         self.top_bar_widget = QWidget()
         self.top_bar_widget.setObjectName("topBar")
         top_bar_layout = QHBoxLayout(self.top_bar_widget)
@@ -88,12 +87,10 @@ class TradeUi(QWidget):
         top_bar_layout.addSpacerItem(QSpacerItem(35, 10, QSizePolicy.Fixed, QSizePolicy.Minimum))
         self.main_layout.addWidget(self.top_bar_widget)
 
-        # --- Основной контент ---
         self.content_layout = QHBoxLayout()
         self.content_layout.setContentsMargins(10, 10, 10, 10)
         self.content_layout.setSpacing(10)
 
-        # Левая часть
         left_panel_widget = QWidget()
         left_panel_layout = QVBoxLayout(left_panel_widget)
         left_panel_layout.setContentsMargins(0, 0, 0, 0)
@@ -123,7 +120,6 @@ class TradeUi(QWidget):
         prediction_layout.addWidget(self.prediction_label)
         left_panel_layout.addWidget(self.prediction_label_container, stretch=1)
 
-        # Правая часть
         self.right_panel_widget = QWidget()
         self.right_panel_widget.setObjectName("orderPanel")
         self.right_panel_widget.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
@@ -241,7 +237,7 @@ class TradeUi(QWidget):
             text_item.setFont(font)
             self.chart_scene.addItem(text_item)
             view_rect = self.chart_view.viewport().rect()
-            if view_rect.width() > 0 and view_rect.height() > 0:
+            if view_rect.width() > 0 and view_rect.height() > 0:  # Проверка перед использованием размеров
                 text_item.setPos(
                     view_rect.width() / 2 - text_item.boundingRect().width() / 2,
                     view_rect.height() / 2 - text_item.boundingRect().height() / 2
@@ -273,18 +269,19 @@ class TradeUi(QWidget):
                 return
 
             price_range = max_price_overall - min_price_overall
-            if abs(price_range) < 1e-9:
+            if abs(price_range) < 1e-9:  # Сравнение float с нулем
                 price_range_default_add = max(
-                    abs(min_price_overall) * 0.02,
-                    self._min_price_range_points * (10 ** -effective_price_precision)
+                    abs(min_price_overall) * 0.02,  # 2% от цены или
+                    self._min_price_range_points * (10 ** -effective_price_precision)  # Несколько минимальных шагов
                 )
-                if abs(price_range_default_add) < 1e-9:
-                    price_range_default_add = (10 ** -effective_price_precision)
+                if abs(price_range_default_add) < 1e-9:  # Если и это почти ноль (например, цена 0)
+                    price_range_default_add = (10 ** -effective_price_precision)  # Один минимальный шаг
+
                 min_price_overall -= price_range_default_add / 2
                 max_price_overall += price_range_default_add / 2
                 price_range = max_price_overall - min_price_overall
-            if abs(price_range) < 1e-9:
-                price_range = 1
+            if abs(price_range) < 1e-9:  # Финальная проверка
+                price_range = 1  # Защита от деления на ноль
 
             num_points_x_hist = len(close_prices)
             num_points_x_total_slots = num_points_x_hist
@@ -301,7 +298,7 @@ class TradeUi(QWidget):
             points = []
             for i, price in enumerate(close_prices):
                 x = self._padding + i * x_step
-                y_ratio = 0.5
+                y_ratio = 0.5  # По умолчанию, если price_range == 0
                 if abs(price_range) > 1e-9:
                     y_ratio = (price - min_price_overall) / price_range
                 y = self._padding + chart_height - (y_ratio * chart_height)
@@ -341,6 +338,7 @@ class TradeUi(QWidget):
             self.chart_scene.setSceneRect(0, 0, view_rect.width(), view_rect.height())
         except Exception as e_draw:
             print(f"[TradeUi CRITICAL] Exception in draw_price_chart: {e_draw}")
+            # Попытка нарисовать сообщение об ошибке на графике
             try:
                 self.clear_chart()
                 err_text_item = QGraphicsTextItem(f"Ошибка отрисовки графика:\n{e_draw}")
@@ -348,7 +346,7 @@ class TradeUi(QWidget):
                 self.chart_scene.addItem(err_text_item)
                 err_text_item.setPos(5, 5)
             except Exception:
-                pass  # Ошибка при отрисовке ошибки - ничего не поделать
+                pass
 
     def set_coin_pair_price(self, pair: str, price: str):
         if self.coin_pair_price_label:

@@ -7,7 +7,6 @@ try:
     from ..ui.coin_list_ui import CoinListUi
     from ..core.mexc_service import MexcService
 except ImportError:
-    print("CoinListWidget: Could not import. Mocks will be used if run standalone.")
     CoinListUi = None
     MexcService = None
 
@@ -56,12 +55,12 @@ class FetchTickersWorker(QThread):
 
 class CoinListWidget(QWidget):
     coin_trade_requested = pyqtSignal(dict)
-    GITHUB_URL = "https://github.com/N01Ta"
+    GITHUB_URL = "https://github.com/N01Ta/crypto_terminal"  # ВАШ URL
 
     def __init__(self, mexc_service: MexcService, parent=None):
         super().__init__(parent)
-        if CoinListUi is None and not (parent is not None and parent.objectName() == "TestMainWindow"):  # Для моков
-            raise ImportError("CoinListUi was not imported for CoinListWidget.")
+        if CoinListUi is None and not (parent and parent.objectName() == "TestMainWindow"):
+            raise ImportError("CoinListUi not imported for CoinListWidget.")
 
         self.mexc_service = mexc_service
         self.ui = CoinListUi(self)
@@ -87,11 +86,10 @@ class CoinListWidget(QWidget):
 
         if hasattr(self.ui, 'n_button') and hasattr(self.ui.n_button, 'clicked'):
             self.ui.n_button.clicked.connect(self._handle_n_button_action)
-        elif hasattr(self.ui, 'n_button_clicked'):  # Если UI эмитирует свой сигнал
+        elif hasattr(self.ui, 'n_button_clicked'):  # Если UI сам эмитирует сигнал
             self.ui.n_button_clicked.connect(self._handle_n_button_action)
 
     def _handle_n_button_action(self):
-        print(f"[CoinListWidget] N button clicked, opening GitHub URL: {self.GITHUB_URL}")
         QDesktopServices.openUrl(QUrl(self.GITHUB_URL))
 
     def _set_controls_enabled(self, enabled: bool):
@@ -99,8 +97,7 @@ class CoinListWidget(QWidget):
         self.ui.search_line_edit.setEnabled(enabled)
 
     def load_initial_markets_and_prices(self):
-        if self.load_markets_worker and self.load_markets_worker.isRunning():
-            return
+        if self.load_markets_worker and self.load_markets_worker.isRunning(): return
         self.ui.set_status_message("Загрузка рынков...", False)
         self._set_controls_enabled(False)
         self.ui.clear_list_widget()
@@ -116,7 +113,7 @@ class CoinListWidget(QWidget):
     def _handle_markets_loaded(self, market_data_list, error_message):
         self._set_controls_enabled(True)
         if error_message:
-            self.ui.set_status_message(f"Ошибка рынков: {error_message}", True)
+            self.ui.set_status_message(f"Ошибка рынков: {error_message}", True);
             return
         if market_data_list:
             self.all_markets_data_full = market_data_list
@@ -125,9 +122,7 @@ class CoinListWidget(QWidget):
             self.ui.set_status_message("Рынки не загружены.", True)
 
     def request_price_updates_for_displayed_items(self):
-        if self.fetch_tickers_worker and self.fetch_tickers_worker.isRunning():
-            return
-
+        if self.fetch_tickers_worker and self.fetch_tickers_worker.isRunning(): return
         symbols_to_fetch = [info['symbol'] for info in self.currently_displayed_items_info]
         if not symbols_to_fetch:
             if not self.price_update_timer.isActive() and self.all_markets_data_full:
@@ -142,9 +137,7 @@ class CoinListWidget(QWidget):
 
     @pyqtSlot(object, object)
     def _handle_tickers_fetched(self, tickers_data_dict, error_message):
-        if error_message:
-            self.ui.set_status_message(f"Ошибка цен: {error_message}", True)
-
+        if error_message: self.ui.set_status_message(f"Ошибка цен: {error_message}", True)
         updated_count = 0
         if isinstance(tickers_data_dict, dict) and tickers_data_dict:
             for item_info in self.currently_displayed_items_info:
@@ -166,30 +159,23 @@ class CoinListWidget(QWidget):
             self.ui.set_status_message(
                 f"Цены обновлены ({updated_count}). Отображено: {len(self.currently_displayed_items_info)}", False
             )
-        elif updated_count == 0 and len(
-                self.currently_displayed_items_info) > 0:  # Если были тикеры, но ничего не обновилось
+        elif updated_count == 0 and len(self.currently_displayed_items_info) > 0:
             self.ui.set_status_message(
                 f"Цены не обновлены. Отображено: {len(self.currently_displayed_items_info)}", False
             )
-
         if not self.price_update_timer.isActive():
             self.price_update_timer.start(self.PRICE_UPDATE_INTERVAL_MS)
 
     def handle_sort_or_search_changed(self):
         search_text = self.ui.search_line_edit.text().lower().strip()
         sort_option_text = self.ui.sort_combo_box.currentText()
-
         filtered_markets = list(self.all_markets_data_full)
         if search_text:
             filtered_markets = [m for m in filtered_markets if search_text in m['symbol'].lower()]
-
         reverse_sort = "↓" in sort_option_text
-        # Сортировка по цене требует кеширования цен или отдельного запроса, пока по имени
-        if "Имя" in sort_option_text or "Цена" in sort_option_text:
+        if "Имя" in sort_option_text or "Цена" in sort_option_text:  # Цена пока тоже по имени
             filtered_markets.sort(key=lambda x: x['symbol'], reverse=reverse_sort)
-
         self._populate_qlistwidget_with_data(filtered_markets[:MAX_COINS_TO_DISPLAY])
-
         if self.currently_displayed_items_info:
             self.request_price_updates_for_displayed_items()
         elif not self.price_update_timer.isActive() and self.all_markets_data_full:
@@ -200,8 +186,7 @@ class CoinListWidget(QWidget):
         self.currently_displayed_items_info.clear()
         for market_data in markets_to_display:
             pair_symbol = market_data['symbol']
-            price_str = "---"
-            list_item = QListWidgetItem(f"{pair_symbol}\t{price_str}")
+            list_item = QListWidgetItem(f"{pair_symbol}\t---")
             list_item.setData(Qt.UserRole, market_data)
             self.ui.coin_list_widget.addItem(list_item)
             self.currently_displayed_items_info.append({'symbol': pair_symbol, 'q_list_item': list_item})
@@ -209,46 +194,39 @@ class CoinListWidget(QWidget):
 
     @pyqtSlot(str)
     def _handle_coin_item_selected_from_ui_signal(self, pair_symbol: str):
-        selected_market_info_to_emit = None
+        selected_market_info = None
         for item_info in self.currently_displayed_items_info:
             if item_info['symbol'] == pair_symbol:
                 original_market_data = item_info['q_list_item'].data(Qt.UserRole)
                 if original_market_data:
-                    selected_market_info_to_emit = dict(original_market_data)
+                    selected_market_info = dict(original_market_data)
                     try:
                         text_content = item_info['q_list_item'].text()
                         if '\t' in text_content:
-                            _, price_str_from_list = text_content.split('\t', 1)
-                            if price_str_from_list != "---":
-                                selected_market_info_to_emit['current_price_from_list'] = float(price_str_from_list)
-                    except:  # Игнорируем ошибки парсинга цены из текста
+                            _, price_str = text_content.split('\t', 1)
+                            if price_str != "---":
+                                selected_market_info['current_price_from_list'] = float(price_str)
+                    except:
                         pass
                 break
-        if selected_market_info_to_emit:
-            self.coin_trade_requested.emit(selected_market_info_to_emit)
+        if selected_market_info:
+            self.coin_trade_requested.emit(selected_market_info)
 
     def _on_worker_finished(self, worker_attribute_name: str):
         worker = getattr(self, worker_attribute_name, None)
-        if worker:
-            worker.deleteLater()
-            setattr(self, worker_attribute_name, None)
+        if worker: worker.deleteLater(); setattr(self, worker_attribute_name, None)
 
     def stop_updates(self):
         self.price_update_timer.stop()
         for worker_attr in ["load_markets_worker", "fetch_tickers_worker"]:
             worker = getattr(self, worker_attr, None)
             if worker and worker.isRunning():
-                if hasattr(worker, 'stop'):
-                    worker.stop()
+                if hasattr(worker, 'stop'): worker.stop()
                 worker.quit()
-                if not worker.wait(300):
-                    worker.terminate()
-                    worker.wait(100)
-            if worker:
-                worker.deleteLater()
-                setattr(self, worker_attr, None)
+                if not worker.wait(300): worker.terminate(); worker.wait(100)
+            if worker: worker.deleteLater(); setattr(self, worker_attr, None)
 
     def closeEvent(self, event):
-        self.stop_updates()
+        self.stop_updates();
         super().closeEvent(event)
 
